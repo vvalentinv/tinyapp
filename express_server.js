@@ -1,5 +1,6 @@
 const express = require("express");
 const app = express();
+const morgan = require("morgan");
 const PORT = 8080; // default port 8080
 const MAXNOCHARACTERS = 6;
 
@@ -24,6 +25,7 @@ const urlDatabase = {
 
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(morgan("dev"));
 
 app.get("/", (req, res) => {
   res.send("Hello!");
@@ -72,6 +74,13 @@ app.get("/set", (req, res) => {
 
 app.get("/fetch", (req, res) => {
   res.send(`a = ${a}`);
+});
+
+//delete
+app.post('/urls/:shortURL/delete', (req, res) => {
+  const shortURL = req.params.shortURL;
+  delete urlDatabase[shortURL];
+  res.redirect('/urls');
 });
 
 app.listen(PORT, () => {
