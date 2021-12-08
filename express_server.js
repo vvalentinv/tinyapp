@@ -26,6 +26,7 @@ const urlDatabase = {
 
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.static('public')); // serve up static files in the public directory
 app.use(morgan("dev"));
 app.use(cookieParser());
 
@@ -129,7 +130,36 @@ app.post('/logout', (req, res) => {
   res.redirect('/urls');
 });
 
+//register
+app.get('/register', (req, res) => {
+  res.render('register');
+});
+app.post('/register', (req, res) => {
+  // const email = req.body.email;
+  // const password = req.body.password;
 
+  // if (!email || !password) {
+  //   return res.status(400).send("email and password cannot be blank")
+  // }
+
+  // const user = findUserByEmail(email);
+
+  // if(user) {
+  //   return res.status(400).send('a user with that email already exists');
+  // }
+
+  // const id = Math.floor(Math.random() * 2000) + 1;
+
+  // users[id] = {
+  //   id: id, 
+  //   email: email,
+  //   password: password
+  // };
+
+  // console.log('users', users)
+  res.redirect('/login');
+
+})
 
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
