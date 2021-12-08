@@ -53,9 +53,15 @@ app.get("/u/:shortURL", (req, res) => {
   console.log(longURL);
   res.redirect(longURL);
 });
+//edit
+app.get("/urls/:shortURL/edit", (req, res) => {
+  const shortURL = req.params.shortURL;
+  const longURL = urlDatabase[shortURL];
+  const templateVars = { shortURL, longURL };
+  res.render("urls_show_edit", templateVars);
+});
 
-
-
+//read
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL];
@@ -75,6 +81,21 @@ app.get("/set", (req, res) => {
 app.get("/fetch", (req, res) => {
   res.send(`a = ${a}`);
 });
+
+//edit
+//
+// EDIT
+//
+
+
+app.post('/urls/:shortURL/edit', (req, res) => {
+  const shortURL = req.params.shortURL;
+  console.log('POST req.body.newLongUrl', req.body.newLongUrl);
+  const longURL = req.body.newLongUrl;
+  urlDatabase[shortURL] = longURL;
+  res.redirect('/urls');
+});
+
 
 //delete
 app.post('/urls/:shortURL/delete', (req, res) => {
