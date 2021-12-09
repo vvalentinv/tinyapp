@@ -123,14 +123,6 @@ app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
-app.get("/set", (req, res) => {
-  const a = 1;
-  res.send(`a = ${a}`);
-});
-
-app.get("/fetch", (req, res) => {
-  res.send(`a = ${a}`);
-});
 
 //edit
 //
@@ -154,13 +146,7 @@ app.post('/urls/:shortURL/delete', (req, res) => {
   res.redirect('/urls');
 });
 
-//login
-app.post('/login', (req, res) => {
 
-  res.cookie('user_id', req.body.user_id);
-  console.log(req.body.user_id);
-  res.redirect('/urls');
-});
 
 //logout
 app.post('/logout', (req, res) => {
@@ -173,7 +159,9 @@ app.post('/logout', (req, res) => {
 
 //register
 app.get('/register', (req, res) => {
-  res.render('register');
+  const user = null;
+  const templateVars = { user };
+  res.render('urls_register', templateVars);
 });
 
 app.post('/register', (req, res) => {
@@ -197,9 +185,45 @@ app.post('/register', (req, res) => {
     email: email,
     password: password
   };
+
   res.cookie('user_id', users[id].id)
   console.log('users', users);
   res.redirect('/urls');
+})
+
+//login
+app.get('/login', (req, res) => {
+  const user = null;
+  const templateVars = { user };
+  res.render('urls_login', templateVars);
+});
+
+app.post('/login', (req, res) => {
+  console.log('req.body', req.body)
+  const email = req.body.email;
+  const password = req.body.password;
+
+  if (!email || !password) {
+    return res.status(400).send("email and password cannot be blank")
+  }
+
+  const userExists = findUserByUserEmail(email);
+  console.log('user', userExists);
+
+  if (!userExists) {
+    return res.status(400).send("a user with that email doesn't exist")
+  }
+
+  if (userExists.password !== password) {
+    return res.status(403).send('your password doesnt match');
+  }
+
+  // happy path
+  res.cookie('user_id', userExists.id);
+  res.redirect('/urls');
+
+
+  //  res.send('you posted to login')
 
 })
 
