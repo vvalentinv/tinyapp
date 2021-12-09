@@ -14,8 +14,15 @@
 </head>
 <body>
   <main style="margin: 2em;">
-    <h3>Login</h3><br><br>
-   
+    <h3>Login</h3><br>
+    <div class="container">
+    
+      <div class="alert alert-warning alert-dismissable">Only authenticated users may shorten URLs!
+          <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+      </div>
+  </div>
+    <br>
+    <form class="form" action="/login" method="POST">
       <div >
         <label for="email">Enter email:</label>
         <input class="form-control" type="email" name="email" placeholder="name@example.com" style="width: 300px;">
@@ -24,7 +31,7 @@
         <label for="email">Enter your password:</label>
         <input class="form-control" type="password" name="password"  style="width: 300px;">
       </div><br>
-       <form class="form-inline" action="/login" method="POST">
+       
             <button type="submit" class="btn btn-primary">Login</button>
     </form>
   </main>

@@ -4,7 +4,7 @@ const morgan = require("morgan");
 const cookieParser = require('cookie-parser');
 const PORT = 8080; // default port 8080
 const TINYURLSIZE = 6;
-const USERIDSIZE = 3;
+const USERIDSIZE = 6;
 
 //Implement the function generateRandomString() here
 const rndStr = function generateRandomString(num) {
@@ -38,21 +38,38 @@ const findUserByUserEmail = (email) => {
   return null;
 }
 
+//Find shortURL by longURL
+const findShortURLByLongURL = (longURL) => {
+  for (const shortURL in urlDatabase) {
+    const url = urlDatabase[shortURL];
+    if (url.longURL === longURL) {
+      return url;
+    }
+  }
+  return null;
+}
+
 app.set("view engine", "ejs");
 
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b2xVn2: {
+    longURL: "https://www.tsn.ca",
+    userID: "aJ48lW"
+  },
+  s9m5xK: {
+    longURL: "https://www.google.ca",
+    userID: "aJ48lW"
+  }
 };
 
 const users = {
-  "111": {
-    id: "111",
+  "aJ48lW": {
+    id: "aJ48lW",
     email: "q@q.ca",
     password: "123"
   },
-  "222": {
-    id: "111",
+  "fG4d34": {
+    id: "fG4d34",
     email: "w@w.ca",
     password: "123"
   }
@@ -80,20 +97,32 @@ app.get("/urls", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  const tiny = rndStr(TINYURLSIZE);//reference value to use in redirect
-  urlDatabase[tiny] = req.body.longURL;// persist data
-  res.redirect(`/urls/${tiny}`);         // to url details page
+  const userId = req.cookies.user_id;
+  const longURL = req.body.longURL;
+  console.log(users[userId], longURL);
+  if (users[userId]) {
+    const shortURL = rndStr(TINYURLSIZE);//reference value to use in redirect
+    urlDatabase[shortURL] = { longURL: longURL, userID: userId };// persist data
+    console.log(urlDatabase[shortURL]);
+    const templateVars = { shortURL: shortURL, longURL: longURL, user: users[userId] };
+    res.redirect(`/urls/${shortURL}`, templateVars);
+  } else {
+    res.redirect(400, '/login');
+  }
+  // to url details page
 });
 
 app.get("/urls/new", (req, res) => {
-  const templateVars = { user: findUserByUserID(req.cookies.user_id) };
+  const user = findUserByUserID(req.cookies.user_id);
+  const templateVars = { urls: urlDatabase, user: user };
+  console.log(urlDatabase, user);
   res.render("urls_new", templateVars);
 });
 
 app.get("/u/:shortURL", (req, res) => {
   // const longURL = ...
   const shortURL = req.params.shortURL;
-  const longURL = urlDatabase[shortURL];
+  const longURL = urlDatabase[shortURL].longURL;
   console.log(longURL);
   res.redirect(longURL);
 });
@@ -101,11 +130,12 @@ app.get("/u/:shortURL", (req, res) => {
 app.get("/urls/:shortURL/edit", (req, res) => {
   const user = findUserByUserID(req.cookies.user_id);
   const shortURL = req.params.shortURL;
-  const longURL = urlDatabase[shortURL];
+  const longURL = urlDatabase[shortURL].longURL;
   const templateVars = {
-    shortURL,
-    longURL,
-    user
+    urls: urlDatabase,
+    user: user,
+    shortURL: shortURL,
+    longURL: longURL
   };
   res.render("urls_show_edit", templateVars);
 });
@@ -119,22 +149,16 @@ app.get("/urls/:shortURL", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
-app.get("/hello", (req, res) => {
-  res.send("<html><body>Hello <b>World</b></body></html>\n");
-});
-
-
-//edit
-//
 // EDIT
 //
 
 
 app.post('/urls/:shortURL/edit', (req, res) => {
+  const user = findUserByUserID(req.cookies.user_id);
   const shortURL = req.params.shortURL;
-  //console.log('POST req.body.newLongUrl', req.body.newLongUrl);
+  console.log('POST req.body.newLongUrl', req.body.newLongUrl);
   const longURL = req.body.newLongUrl;
-  urlDatabase[shortURL] = longURL;
+  urlDatabase[shortURL] = { longURL: longURL, userID: user.id };
   res.redirect('/urls');
 });
 
@@ -186,15 +210,14 @@ app.post('/register', (req, res) => {
     password: password
   };
 
-  res.cookie('user_id', users[id].id)
+  res.cookie('user_id', id)
   console.log('users', users);
   res.redirect('/urls');
 })
 
 //login
 app.get('/login', (req, res) => {
-  const user = null;
-  const templateVars = { user };
+  const templateVars = { user: null };
   res.render('urls_login', templateVars);
 });
 
