@@ -6,6 +6,33 @@ const PORT = 8080; // default port 8080
 const TINYURLSIZE = 6;
 const USERIDSIZE = 6;
 
+
+
+const urlDatabase = {
+  b2xVn2: {
+    longURL: "https://www.tsn.ca",
+    userID: "aJ48lW"
+  },
+  s9m5xK: {
+    longURL: "https://www.google.ca",
+    userID: "aJ48lW"
+  }
+};
+
+const users = {
+  "aJ48lW": {
+    id: "aJ48lW",
+    email: "q@q.ca",
+    password: "123"
+  },
+  "fG4d34": {
+    id: "fG4d34",
+    email: "w@w.ca",
+    password: "123"
+  }
+}
+
+
 //Implement the function generateRandomString() here
 const rndStr = function generateRandomString(num) {
   let tiny = "";
@@ -39,41 +66,16 @@ const findUserByUserEmail = (email) => {
 }
 
 //Find shortURL by longURL
-const findShortURLByLongURL = (longURL) => {
-  for (const shortURL in urlDatabase) {
-    const url = urlDatabase[shortURL];
-    if (url.longURL === longURL) {
-      return url;
-    }
-  }
-  return null;
+const findLongURLByShortURL = (shortURL) => {
+  for (const id in urlDatabase[shortURL]) {
+    if (id === "longURL")
+      return urlDatabase[shortURL][id];
+  };
 }
 
 app.set("view engine", "ejs");
 
-const urlDatabase = {
-  b2xVn2: {
-    longURL: "https://www.tsn.ca",
-    userID: "aJ48lW"
-  },
-  s9m5xK: {
-    longURL: "https://www.google.ca",
-    userID: "aJ48lW"
-  }
-};
 
-const users = {
-  "aJ48lW": {
-    id: "aJ48lW",
-    email: "q@q.ca",
-    password: "123"
-  },
-  "fG4d34": {
-    id: "fG4d34",
-    email: "w@w.ca",
-    password: "123"
-  }
-}
 
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -97,18 +99,18 @@ app.get("/urls", (req, res) => {
 });
 
 app.post("/urls", (req, res) => {
-  const userId = req.cookies.user_id;
+  const user = findUserByUserID(req.cookies.user_id);
   const longURL = req.body.longURL;
-  console.log(users[userId], longURL);
-  if (users[userId]) {
-    const shortURL = rndStr(TINYURLSIZE);//reference value to use in redirect
-    urlDatabase[shortURL] = { longURL: longURL, userID: userId };// persist data
-    console.log(urlDatabase[shortURL]);
-    const templateVars = { shortURL: shortURL, longURL: longURL, user: users[userId] };
-    res.redirect(`/urls/${shortURL}`, templateVars);
-  } else {
-    res.redirect(400, '/login');
+  console.log(user);
+  if (!user) {
+    return res.redirect('/login');
   }
+  const shortURL = rndStr(TINYURLSIZE);//reference value to use in redirect
+  urlDatabase[shortURL] = { longURL: longURL, userID: user.id };// persist data
+  console.log(urlDatabase);
+  //const templateVars = { urls: urlDatabase, user: user };
+  res.redirect(`/urls/${shortURL}`);
+
   // to url details page
 });
 
@@ -122,14 +124,16 @@ app.get("/urls/new", (req, res) => {
 app.get("/u/:shortURL", (req, res) => {
   // const longURL = ...
   const shortURL = req.params.shortURL;
-  const longURL = urlDatabase[shortURL].longURL;
-  console.log(longURL);
-  res.redirect(longURL);
+  const link = findLongURLByShortURL(shortURL);
+  console.log(link);
+  res.redirect(link);
 });
 //edit
 app.get("/urls/:shortURL/edit", (req, res) => {
   const user = findUserByUserID(req.cookies.user_id);
   const shortURL = req.params.shortURL;
+
+
   const longURL = urlDatabase[shortURL].longURL;
   const templateVars = {
     urls: urlDatabase,
@@ -143,9 +147,11 @@ app.get("/urls/:shortURL/edit", (req, res) => {
 //read
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
-  const longURL = urlDatabase[shortURL];
   const user = findUserByUserID(req.cookies.user_id);
-  const templateVars = { shortURL, longURL, user };
+  const urls = urlDatabase;
+  const templateVars = { urls, shortURL, user };
+
+  console.log(urls);
   res.render("urls_show", templateVars);
 });
 
@@ -156,7 +162,8 @@ app.get("/urls/:shortURL", (req, res) => {
 app.post('/urls/:shortURL/edit', (req, res) => {
   const user = findUserByUserID(req.cookies.user_id);
   const shortURL = req.params.shortURL;
-  console.log('POST req.body.newLongUrl', req.body.newLongUrl);
+  if (!user || user.id !== urlDatabase[shortURL].userID)
+    return res.send("Only the URL's owner can make changes!");
   const longURL = req.body.newLongUrl;
   urlDatabase[shortURL] = { longURL: longURL, userID: user.id };
   res.redirect('/urls');
@@ -166,6 +173,9 @@ app.post('/urls/:shortURL/edit', (req, res) => {
 //delete
 app.post('/urls/:shortURL/delete', (req, res) => {
   const shortURL = req.params.shortURL;
+  const user = findUserByUserID(req.cookies.user_id);
+  if (!user || user.id !== urlDatabase[shortURL].userID)
+    return res.send("Only the URL's owner can make changes!");
   delete urlDatabase[shortURL];
   res.redirect('/urls');
 });
