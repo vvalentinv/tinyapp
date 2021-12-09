@@ -27,6 +27,16 @@ const findUserByUserID = (userId) => {
   return null;
 }
 
+//Find user by email
+const findUserByUserEmail = (email) => {
+  for (const id in users) {
+    const user = users[id];
+    if (user.email === email) {
+      return user;
+    }
+  }
+  return null;
+}
 
 app.set("view engine", "ejs");
 
@@ -170,15 +180,15 @@ app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
 
-  // if (!email || !password) {
-  //   return res.status(400).send("email and password cannot be blank")
-  // }
+  if (!email || !password) {
+    return res.status(400).send("email and password cannot be blank")
+  }
 
-  // const user = findUserByEmail(email);
+  const userExists = findUserByUserEmail(email);
 
-  // if (user) {
-  //   return res.status(400).send('a user with that email already exists');
-  // }
+  if (userExists) {
+    return res.status(400).send('a user with that email already exists');
+  }
 
   const id = rndStr(USERIDSIZE);
 
@@ -189,7 +199,6 @@ app.post('/register', (req, res) => {
   };
   res.cookie('user_id', users[id].id)
   console.log('users', users);
-  //console.log('cookie', user_id);
   res.redirect('/urls');
 
 })
