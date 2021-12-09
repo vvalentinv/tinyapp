@@ -3,19 +3,30 @@ const app = express();
 const morgan = require("morgan");
 const cookieParser = require('cookie-parser');
 const PORT = 8080; // default port 8080
-const MAXNOCHARACTERS = 6;
+const TINYURLSIZE = 6;
+const USERIDSIZE = 3;
 
 //Implement the function generateRandomString() here
-const rndStr = function generateRandomString() {
+const rndStr = function generateRandomString(num) {
   let tiny = "";
   const pool = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  for (let i = 0; i < MAXNOCHARACTERS; i++) {
+  for (let i = 0; i < num; i++) {
     tiny += pool[Math.floor(Math.random() * pool.length)]
   }
   return tiny;
 
 }
-//
+//Find user by ID
+const findUserByUserID = (userId) => {
+  for (const id in users) {
+    const user = users[id];
+    if (user.id === userId) {
+      return user;
+    }
+  }
+  return null;
+}
+
 
 app.set("view engine", "ejs");
 
@@ -24,6 +35,19 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+const users = {
+  "111": {
+    id: "111",
+    email: "q@q.ca",
+    password: "123"
+  },
+  "222": {
+    id: "111",
+    email: "w@w.ca",
+    password: "123"
+  }
+}
+
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public')); // serve up static files in the public directory
@@ -31,26 +55,28 @@ app.use(morgan("dev"));
 app.use(cookieParser());
 
 app.get("/", (req, res) => {
-  res.send("Hello!");
+  res.redirect('/urls');
 });
 
 app.get("/urls", (req, res) => {
+  const user = findUserByUserID(req.cookies.user_id);
+
   const templateVars = {
     urls: urlDatabase,
-    username: req.cookies.username,
+    user: user
   };
+
   res.render("urls_index", templateVars);
 });
 
 app.post("/urls", (req, res) => {
-  const tiny = rndStr();//reference value to use in redirect
+  const tiny = rndStr(TINYURLSIZE);//reference value to use in redirect
   urlDatabase[tiny] = req.body.longURL;// persist data
   res.redirect(`/urls/${tiny}`);         // to url details page
 });
 
 app.get("/urls/new", (req, res) => {
-  const username = req.cookies.username;
-  const templateVars = { username };
+  const templateVars = { user: findUserByUserID(req.cookies.user_id) };
   res.render("urls_new", templateVars);
 });
 
@@ -63,10 +89,14 @@ app.get("/u/:shortURL", (req, res) => {
 });
 //edit
 app.get("/urls/:shortURL/edit", (req, res) => {
+  const user = findUserByUserID(req.cookies.user_id);
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL];
-  const username = req.cookies.username;
-  const templateVars = { shortURL, longURL, username };
+  const templateVars = {
+    shortURL,
+    longURL,
+    user
+  };
   res.render("urls_show_edit", templateVars);
 });
 
@@ -74,8 +104,8 @@ app.get("/urls/:shortURL/edit", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL];
-  const username = req.cookies.username;
-  const templateVars = { shortURL, longURL, username };
+  const user = findUserByUserID(req.cookies.user_id);
+  const templateVars = { shortURL, longURL, user };
   res.render("urls_show", templateVars);
 });
 
@@ -116,17 +146,18 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 
 //login
 app.post('/login', (req, res) => {
-  res.cookie('username', req.body.username);
-  console.log(req.body.username);
+
+  res.cookie('user_id', req.body.user_id);
+  console.log(req.body.user_id);
   res.redirect('/urls');
 });
 
 //logout
 app.post('/logout', (req, res) => {
-  const username = req.cookies.username;
-  const templateVars = { username };
-  res.clearCookie("username");
-  console.log(username);
+  const user = findUserByUserID(req.cookies.user_id);
+  const templateVars = { user };
+  res.clearCookie("user_id");
+  console.log(user);
   res.redirect('/urls');
 });
 
@@ -134,9 +165,10 @@ app.post('/logout', (req, res) => {
 app.get('/register', (req, res) => {
   res.render('register');
 });
+
 app.post('/register', (req, res) => {
-  // const email = req.body.email;
-  // const password = req.body.password;
+  const email = req.body.email;
+  const password = req.body.password;
 
   // if (!email || !password) {
   //   return res.status(400).send("email and password cannot be blank")
@@ -144,20 +176,21 @@ app.post('/register', (req, res) => {
 
   // const user = findUserByEmail(email);
 
-  // if(user) {
+  // if (user) {
   //   return res.status(400).send('a user with that email already exists');
   // }
 
-  // const id = Math.floor(Math.random() * 2000) + 1;
+  const id = rndStr(USERIDSIZE);
 
-  // users[id] = {
-  //   id: id, 
-  //   email: email,
-  //   password: password
-  // };
-
-  // console.log('users', users)
-  res.redirect('/login');
+  users[id] = {
+    id: id,
+    email: email,
+    password: password
+  };
+  res.cookie('user_id', users[id].id)
+  console.log('users', users);
+  //console.log('cookie', user_id);
+  res.redirect('/urls');
 
 })
 
