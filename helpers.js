@@ -10,17 +10,6 @@ const rndStr = function generateRandomString(num) {
   return tiny;
 }
 
-//Find user by ID
-// const findUserByUserID = (userId) => {
-//   for (const id in users) {
-//     const user = users[id];
-//     if (user.id === userId) {
-//       return user;
-//     }
-//   }
-//   return null;
-// }
-
 //Find user by email
 const findUserByUserEmail = (email, dB) => {
   for (const id in dB) {
@@ -71,4 +60,23 @@ const urlsForUser = (user, dB) => {
   return userURLs;
 }
 
-module.exports = { rndStr, urlsForUser, authenticateUser, findLongURLByShortURL, findUserByUserEmail };
+//returns false if the tiny does not exist
+const checkTiny = (shortURL, dB) => {
+  for (const url in dB) {
+    if (url === shortURL) {
+      return true;
+    }
+  }
+  return false;
+}
+
+//check if user exists then if they are the owner of the tiny
+const guard = function userExistsAndOwnsTheShortURL(id, url, dB1, dB2) {
+  if (!checkTiny(url, dB1))
+    return { err: 'No such tiny URL!', id: null };
+  if (!dB2[id] || id !== dB1[url].userID)
+    return { err: 'Only the URL\'s owner can make changes or view this URL!', id: null };
+  return { err: null, data: true };
+}
+
+module.exports = { guard, checkTiny, rndStr, urlsForUser, authenticateUser, findLongURLByShortURL, findUserByUserEmail };

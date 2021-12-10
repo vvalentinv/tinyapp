@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser');
 const cookieSession = require("cookie-session");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcryptjs");
-const { rndStr, urlsForUser, authenticateUser, findLongURLByShortURL, findUserByUserEmail } = require('./helpers');
+const { guard, rndStr, urlsForUser, authenticateUser, findLongURLByShortURL, findUserByUserEmail } = require('./helpers');
 const PORT = 8080; // default port 8080
 const TINYURLSIZE = 6;
 const USERIDSIZE = 6;
@@ -74,11 +74,11 @@ app.get("/urls", (req, res) => {
 //add new urls
 app.post("/urls", (req, res) => {
   const id = req.session.id;
-  const longURL = req.body.longURL;
-  console.log(users[id]);
+
   if (!users[id]) {
     return res.redirect('/login');
   }
+  const longURL = req.body.longURL;
   const shortURL = rndStr(TINYURLSIZE);//reference value to use in redirect
   urlDatabase[shortURL] = { longURL: longURL, userID: users[id].id };// persist data
   console.log(urlDatabase);
@@ -90,6 +90,8 @@ app.post("/urls", (req, res) => {
 
 app.get("/urls/new", (req, res) => {
   const id = req.session.id;
+  if (!users[id])
+    return res.send("You must login first!");
   const templateVars = { urls: urlDatabase, user: users[id] };
   console.log(urlDatabase, users[id]);
   res.render("urls_new", templateVars);
@@ -98,6 +100,11 @@ app.get("/urls/new", (req, res) => {
 app.get("/u/:shortURL", (req, res) => {
   // const longURL = ...
   const shortURL = req.params.shortURL;
+  const id = req.session.id;
+  const result = guard(id, shortURL, urlDatabase, users);
+  if (result.err) {
+    return res.status(400).send(result.err);
+  }
   const link = findLongURLByShortURL(shortURL, urlDatabase);
   res.redirect(link);
 });
@@ -106,8 +113,11 @@ app.get("/u/:shortURL", (req, res) => {
 app.get("/urls/:shortURL/edit", (req, res) => {
   const shortURL = req.params.shortURL;
   const id = req.session.id;
+  const result = guard(id, shortURL, urlDatabase, users);
+  if (result.err) {
+    return res.status(400).send(result.err);
+  }
   const longURL = urlDatabase[shortURL].longURL;
-
   const templateVars = {
     urls: urlDatabase,
     user: users[id],
@@ -121,6 +131,10 @@ app.get("/urls/:shortURL/edit", (req, res) => {
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const id = req.session.id;
+  const result = guard(id, shortURL, urlDatabase, users);
+  if (result.err) {
+    return res.status(400).send(result.err);
+  }
   const urls = urlDatabase;
   const templateVars = { urls, shortURL, user: users[id] };
   res.render("urls_show", templateVars);
@@ -130,8 +144,10 @@ app.get("/urls/:shortURL", (req, res) => {
 app.post('/urls/:shortURL/edit', (req, res) => {
   const id = req.session.id;
   const shortURL = req.params.shortURL;
-  if (!users[id] || id !== urlDatabase[shortURL].userID)
-    return res.send("Only the URL's owner can make changes!");
+  const result = guard(id, shortURL, urlDatabase, users);
+  if (result.err) {
+    return res.status(400).send(result.err);
+  }
   const longURL = req.body.newLongUrl;
   urlDatabase[shortURL] = { longURL: longURL, userID: users[id].id };
   res.redirect('/urls');
@@ -142,8 +158,10 @@ app.post('/urls/:shortURL/edit', (req, res) => {
 app.post('/urls/:shortURL/delete', (req, res) => {
   const shortURL = req.params.shortURL;
   const id = req.session.id;
-  if (!users[id] || id !== urlDatabase[shortURL].userID)
-    return res.send("Only the URL's owner can make changes!");
+  const result = guard(id, shortURL, urlDatabase, users);
+  if (result.err) {
+    return res.status(400).send(result.err);
+  }
   delete urlDatabase[shortURL];
   res.redirect('/urls');
 });
