@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const cookieSession = require("cookie-session");
 const bodyParser = require("body-parser");
 const bcrypt = require("bcryptjs");
+const { rndStr, urlsForUser, authenticateUser, findLongURLByShortURL, findUserByUserEmail } = require('./helpers');
 const PORT = 8080; // default port 8080
 const TINYURLSIZE = 6;
 const USERIDSIZE = 6;
@@ -50,88 +51,18 @@ app.use(
   })
 );
 
-//Implement the function generateRandomString() here
-const rndStr = function generateRandomString(num) {
-  let tiny = "";
-  const pool = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  for (let i = 0; i < num; i++) {
-    tiny += pool[Math.floor(Math.random() * pool.length)]
-  }
-  return tiny;
-}
-
-//Find user by ID
-const findUserByUserID = (userId) => {
-  for (const id in users) {
-    const user = users[id];
-    if (user.id === userId) {
-      return user;
-    }
-  }
-  return null;
-}
-
-//Find user by email
-const findUserByUserEmail = (email) => {
-  for (const id in users) {
-    const user = users[id];
-    if (user.email === email) {
-      return user;
-    }
-  }
-  return null;
-}
-
-//Find shortURL by longURL
-const findLongURLByShortURL = (shortURL) => {
-  for (const id in urlDatabase[shortURL]) {
-    if (id === "longURL")
-      return urlDatabase[shortURL][id];
-  };
-}
-
-//handles authentication and conveniently returns the id if successfull
-const authenticateUser = (email, password) => {
-
-  if (!email || !password) {
-    return { err: "Email or Password cannot be empty!", id: null };
-  }
-
-  const userExists = findUserByUserEmail(email);
-  console.log('user', userExists);
-
-  if (!userExists) {
-    return { err: "User not found", id: null };
-  }
-  const passwordMatch = bcrypt.compareSync(password, userExists.password);
-  if (!passwordMatch) {
-    return { err: 'Your password doesnt match', id: null };
-  }
-  return { err: null, id: userExists.id };
-}
-
-//returns new urlDatabase with urls that belong to the user only
-const urlsForUser = (user) => {
-  const userURLs = {}
-  for (const shortURL in urlDatabase) {
-    if (urlDatabase[shortURL].userID === user.id) {
-      userURLs[shortURL] = { longURL: urlDatabase[shortURL].longURL, userID: user.id }
-    }
-  }
-  return userURLs;
-}
-
-
+//home
 app.get("/", (req, res) => {
   res.redirect('/urls');
 });
 
+//the urls list
 app.get("/urls", (req, res) => {
   const id = req.session.id;
   if (!users[id]) {
     return res.redirect('/login');
   }
-  const tempDatabase = urlsForUser(users[id]);
+  const tempDatabase = urlsForUser(users[id], urlDatabase);
   const templateVars = {
     urls: tempDatabase,
     user: users[id]
@@ -140,6 +71,7 @@ app.get("/urls", (req, res) => {
   res.render("urls_index", templateVars);
 });
 
+//add new urls
 app.post("/urls", (req, res) => {
   const id = req.session.id;
   const longURL = req.body.longURL;
@@ -148,7 +80,7 @@ app.post("/urls", (req, res) => {
     return res.redirect('/login');
   }
   const shortURL = rndStr(TINYURLSIZE);//reference value to use in redirect
-  urlDatabase[shortURL] = { longURL: longURL, userID: users.id };// persist data
+  urlDatabase[shortURL] = { longURL: longURL, userID: users[id].id };// persist data
   console.log(urlDatabase);
   //const templateVars = { urls: urlDatabase, user: user };
   res.redirect(`/urls/${shortURL}`);
@@ -166,9 +98,10 @@ app.get("/urls/new", (req, res) => {
 app.get("/u/:shortURL", (req, res) => {
   // const longURL = ...
   const shortURL = req.params.shortURL;
-  const link = findLongURLByShortURL(shortURL);
+  const link = findLongURLByShortURL(shortURL, urlDatabase);
   res.redirect(link);
 });
+
 //edit
 app.get("/urls/:shortURL/edit", (req, res) => {
   const shortURL = req.params.shortURL;
@@ -193,17 +126,14 @@ app.get("/urls/:shortURL", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
-// EDIT
-//
-
-
+// save edited urls 
 app.post('/urls/:shortURL/edit', (req, res) => {
   const id = req.session.id;
   const shortURL = req.params.shortURL;
   if (!users[id] || id !== urlDatabase[shortURL].userID)
     return res.send("Only the URL's owner can make changes!");
   const longURL = req.body.newLongUrl;
-  urlDatabase[shortURL] = { longURL: longURL, userID: user.id };
+  urlDatabase[shortURL] = { longURL: longURL, userID: users[id].id };
   res.redirect('/urls');
 });
 
@@ -221,17 +151,17 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 //logout
 app.post('/logout', (req, res) => {
   delete req.session.id;
-  console.log(user);
   res.redirect('/urls');
 });
 
-//register
+//load register
 app.get('/register', (req, res) => {
   const user = null;
   const templateVars = { user };
   res.render('urls_register', templateVars);
 });
 
+//persist user
 app.post('/register', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
@@ -240,7 +170,7 @@ app.post('/register', (req, res) => {
     return res.status(400).send("email and password cannot be blank")
   }
 
-  const userExists = findUserByUserEmail(email);
+  const userExists = findUserByUserEmail(email, users);
 
   if (userExists) {
     return res.status(400).send('a user with that email already exists');
@@ -258,16 +188,17 @@ app.post('/register', (req, res) => {
   return res.redirect('/urls');
 })
 
-//login
+//load login form
 app.get('/login', (req, res) => {
   const templateVars = { user: null };
   res.render('urls_login', templateVars);
 });
 
+//authenticate user
 app.post('/login', (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
-  const result = authenticateUser(email, password);
+  const result = authenticateUser(email, password, users);
   if (result.err) {
     return res.status(400).send(result.err);
   }
